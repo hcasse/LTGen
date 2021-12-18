@@ -10,7 +10,22 @@ def error(msg):
 def fatal(msg):
 	error(msg)
 	sys.exit(1)
-	
+
+
+
+def word_to_str(w):
+	return " ".join(w)
+
+
+def word_set_to_str(S):
+	f = [word_to_str(w) for w in S]
+	f.sort()
+	return "{ %s }" % (", ".join(list(f)))
+
+
+def rule_to_str(X, s):
+	return "%s -> %s" % (X, word_to_str(s))
+
 
 class Grammar:
 	"""Class representing a grammar. It is defined its axiom and its
@@ -43,8 +58,8 @@ class Grammar:
 
 	def print(self, out):
 		n = 0
-		for (r, s) in self.rules:
-			out.write("(%d) %s -> %s\n" % (n, r, " ".join(s)))
+		for (X, s) in self.rules:
+			out.write("(%d) %s\n" % (n, rule_to_str(X, s)))
 			n = n + 1
 
 
@@ -105,10 +120,40 @@ def follow(k, X, G):
 	return rec_follow(k, X, G, set())
 
 
-def lookahead(k, r, g):
-	pass
+def lookahead(k, X, s, G):
+	return firstfollow(k, X, s, G)
 
 
+def analyze_ll(k, G):
+	total_success = True
+	for X in G.names:
+
+		# compute lookahead
+		rs = []
+		n = 0
+		for (Y, s) in G.get_rules():
+			if X == Y:
+				rs.append((n, s, lookahead(k, X, s, G)))
+			n = n + 1
+
+		# check if the intersection is empty
+		success = True
+		for i in range(0, len(rs)):
+			for j in range(i+1, len(rs)):
+				I = rs[i][2] & rs[j][2]
+				if I != set():
+					if success:
+						success = False
+						for (n, s, l) in rs:
+							print("(%d) %d-lookahead(%s -> %s) = %s" \
+								%(n, k, X, word_to_str(s), word_set_to_str(l)))
+					print("I%d conflicts with I%d: %s" \
+						% (rs[i][0], rs[j][0], word_set_to_str(I)))
+
+		total_success &= success
+
+	return total_success
+		
 
 def parse(path):
 	"""Parse the given file and, if there is no error, return the
@@ -146,9 +191,54 @@ def parse(path):
 parser = argparse.ArgumentParser(description='Language Theory GENerator')
 parser.add_argument('grammar', type=str, nargs=1,
 	help="Grammar to use.")
+parser.add_argument('names', type=str, nargs='*',
+	help="List of all non-terminals to work on.")
+parser.add_argument('--k', type=int, default=1,
+	help="Specify the analysis depth (default to 1).")
+parser.add_argument("--first", action="store_true",
+	help="Compute the firsts.")
+parser.add_argument("--follow", action="store_true",
+	help="Compute the follows.")
+parser.add_argument("--lookahead", action="store_true",
+	help="Compute the lookahead.")
+parser.add_argument("--ll", action="store_true",
+	help="Perform LL(k) analysis.")
 
+
+# get the grammar
 args = parser.parse_args()
 G = parse(args.grammar[0])
-G.print(sys.stdout)
 
 
+# prepare the arguments
+no_action = True
+if args.names != []:
+	names = args.names
+else:
+	names = G.names
+
+
+# perform the action
+if args.first:
+	no_action = False
+	for n in names:
+		f = first(args.k, (n, ), G)
+		print("first%d(%s) = %s" % (args.k, n, word_set_to_str(f)))
+if args.follow:
+	no_action = False
+	for n in names:
+		f = follow(args.k, n, G)
+		print("follow%d(%s) = %s" % (args.k, n, word_set_to_str(f)))
+if args.lookahead:
+	no_action = False
+	for (X, s) in G.get_rules():
+		if X in names:
+			f = lookahead(args.k, X, s, G)
+		print("%d-lookahead(%s -> %s) = %s" % \
+			(args.k, X, word_to_str(s), word_set_to_str(f)))
+if args.ll:
+	no_action = False
+	analyze_ll(args.k, G)
+
+if no_action:
+	G.print(sys.stdout)

@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 
-from tlgen import *
+from ltgen import *
 
 def get_G():
 	return Grammar(

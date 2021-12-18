@@ -1,0 +1,8 @@
+# first grammar
+
+S'	->	S
+S	->	a a b
+S	->	a R
+R	->	a b
+R	->	b c R
+R	->	d R b

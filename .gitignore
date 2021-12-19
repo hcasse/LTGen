@@ -1,3 +1,5 @@
 __pycache__
 *.pyc
 log.txt
+grams/*.csv
+grams/*.txt

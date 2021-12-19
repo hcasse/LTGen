@@ -1,6 +1,5 @@
 # first grammar
 
-S'	->	S
 S	->	a a b
 S	->	a R
 R	->	a b

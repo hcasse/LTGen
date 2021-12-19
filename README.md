@@ -37,6 +37,16 @@ Grammar can be expressed using `.gram`files. The format is very simple:
   * The name of the first rule is the axiom of the grammar.
   * Empty lines are accepted.
   * Comments spans from the `#` to the end of the line. 
+  * Notice that the symbol `$` is reserved to mark the end of word.
+
+**Example of grammar:**
+
+	S'	->	S
+	S	->	a S b
+	S	->	R
+	R	->	b
+	R	->	c R
+
 
 ## Testing
 

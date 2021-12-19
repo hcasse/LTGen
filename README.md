@@ -7,7 +7,7 @@ to implement language theory.
 
 **LTGen** is a collection of tools to implement basic algorithms used in *Language Theory*. The command line arguments are mostly the same for the provided tools:
 
-	$ ltgen.py GRAMMAR OPTIONS
+	$ ltgen.py GRAMMAR OPTIONS? NON-TERMINALS?
 
 Where *GRAMMAR* is path to a file containing the grammar to work with
 (format is detailed below).
@@ -20,8 +20,11 @@ are shared by all tools:
   * `--output|-o` *PATH*? -- output to the analysis table to a file (with the given *PATH* or to path derived from the grammar file).
   * `--word|-w` "*WORD*" -- scan the *WORD* with the current analysis (separate non-terminals in the word by spaces).
   * `--print` -- print the current grammar (useful un conjunction with `--word)`.
+  * `--table` -- print the analysis table.
 
 If no options is given, the used grammar is just displayed.
+
+*NON-TERMINALS* are the names of non-terminal in the *GRAMMAR* to work with. The performed work depends on the selected type of analysis (see below).
 
 
 ## LL(k) Analysis

@@ -18,6 +18,8 @@ are shared by all tools:
   * `--table` -- output the analysis table (if any).
   * `--gen-csv` -- output the analysis table in CSV (if any).
   * `--output|-o` *PATH*? -- output to the analysis table to a file (with the given *PATH* or to path derived from the grammar file).
+  * `--word|-w` "*WORD*" -- scan the *WORD* with the current analysis (separate non-terminals in the word by spaces).
+  * `--print` -- print the current grammar (useful un conjunction with `--word)`.
 
 If no options is given, the used grammar is just displayed.
 

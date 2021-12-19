@@ -15,6 +15,9 @@ Where *GRAMMAR* is path to a file containing the grammar to work with
 *OPTIONS* are detailed in the following sections but some (provided below)
 are shared by all tools:
   * `--k` -- select the lookup depth used in the tools.
+  * `--table` -- output the analysis table (if any).
+  * `--gen-csv` -- output the analysis table in CSV (if any).
+  * `--output|-o` *PATH*? -- output to the analysis table to a file (with the given *PATH* or to path derived from the grammar file).
 
 If no options is given, the used grammar is just displayed.
 

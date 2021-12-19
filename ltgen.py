@@ -5,7 +5,9 @@ import os.path
 import sys
 
 # special values
+LL_ACCEPT = -2
 LL_ERROR = -1
+
 
 
 # IO functions
@@ -30,7 +32,12 @@ def output(msg):
 
 # formatting functions
 def word_to_str(w):
-	return " ".join(w)
+	if len(w) == 0:
+		return u"ε"
+	elif type(w) == list:
+		return " ".join(w)
+	else:
+		return " ".join(list(w))
 
 def word_set_to_str(S):
 	f = [word_to_str(w) for w in S]
@@ -216,8 +223,9 @@ class LLTable:
 	for rows and terminals for columns. Its content are the rule
 	numbers to expand or the special value LL_ERROR."""
 
-	def __init__(self, G, las):
-		self.G = G
+	def __init__(self, k, G, las):
+		self.k = k
+		self.G = G 
 
 		# non-terminals
 		self.nts = list(G.names)
@@ -248,11 +256,7 @@ class LLTable:
 	def at(self, X, p):
 		"""Give the table value for non-terminal X and terminal a.
 		This value is the rule to expand or None for an error."""
-		x = self.table[self.nt_map[X]][self.la_map[p]]
-		if x == LL_ERR:
-			return None
-		else:
-			return self.G.get_rules()[x][1]
+		return self.table[self.nt_map[X]][self.la_map[p]]
 
 	def get_non_terminals(self):
 		return self.nts
@@ -279,9 +283,52 @@ class LLTable:
 		for X in self.nts:
 			out.write(X)
 			for c in self.table[self.nt_map[X]]:
-				out.write("\t%d" % c)
+				if c == LL_ERROR:
+					out.write("\tERR")
+				else:
+					out.write("\t(%d)" % c)
 			out.write("\n")
 
+
+# LLScanner class
+class LLScanner:
+	"""Class to scan a word from the given LL table.
+	The scanner takes a word and performs analysis along the call to next.
+	Analysis results can be polled from variablmes stack, word and action.
+	Action takes the last expanded rule number, the popped terminal or
+	special LL_ERROR or LL_ACCEPT."""
+
+	def __init__(self, table, word):
+		self.G = table.G
+		self.k = table.k
+		self.table = table
+		self.word = word + ('$',) * self.k
+		self.stack = ['$'] * self.k + [self.G.get_top()]
+		self.action = 0
+
+	def next(self):
+		"""Go to the next step."""
+		if self.action in { LL_ERROR, LL_ACCEPT }:
+			pass
+		elif self.stack == []:
+			if self.word == ():
+				self.action = LL_ACCEPT
+			else:
+				self.action = LL_ERROR
+		elif self.stack[-1] == self.word[0]:
+			self.action = self.stack[-1]
+			self.stack.pop()
+			self.word = self.word[1:]
+		else:
+			try:
+				self.action = self.table.at(self.stack[-1], self.word[:self.k])
+				self.stack.pop()
+				x = list(self.G.get_rules()[self.action][1])
+				x.reverse()
+				self.stack += x
+			except KeyError:
+				self.action = LL_ERROR
+	
 
 # main command
 parser = argparse.ArgumentParser(description='Language Theory GENerator')
@@ -301,11 +348,14 @@ parser.add_argument("--ll", action="store_true",
 	help="Perform LL(k) analysis.")
 parser.add_argument("--gen-csv", action="store_true",
 	help="Generate the analysis table in CSV format.")
+parser.add_argument("--print", action="store_true",
+	help="Print the grammar.")
 parser.add_argument("--output", "-o", type=str, nargs="?", default=None,  const="",
 	help="Generate the analysis table in CSV format.")
 parser.add_argument("--table", action="store_true",
 	help="Generate the table for the used analysis.")
-
+parser.add_argument("--words", "-w", type=str, nargs="*", default=[],
+	help="Parse the given word after the analysis.")
 
 
 # get the grammar
@@ -321,7 +371,7 @@ else:
 	names = G.names
 
 
-# perform the action
+# msic. calculations
 if args.first:
 	no_action = False
 	for n in names:
@@ -339,15 +389,29 @@ if args.lookahead:
 			f = lookahead(args.k, X, s, G)
 		output("%d-lookahead(%s -> %s) = %s" % \
 			(args.k, X, word_to_str(s), word_set_to_str(f)))
+
+# print the grammar
+if args.print:
+	G.print(sys.stdout)
+
+# LL(k) analysis
 if args.ll:
 	no_action = False
+
+	# perform the analysis
 	las = analyze_ll(args.k, G)
 	if las == None:
 		fatal("%s is not LL(%d)!" % (args.grammar[0], args.k))
 	else:
 		info("%s is LL(%d)." % (args.grammar[0], args.k))
+	table = None
+
+	# generate the table if needed
+	if args.table or args.gen_csv == None or args.words != []:
+		table = LLTable(args.k, G, las)
+
+	# output the results
 	if args.table or args.gen_csv == None:
-		table = LLTable(G, las)
 		print(args)
 		if args.output != None:
 			if args.output != "":
@@ -368,5 +432,24 @@ if args.ll:
 		if out != sys.stdout:
 			out.close()
 
+	# word analysis
+	for w in args.words:
+		output("Stack\t\tWord\t\tAction")
+		output("-"*15 + " " + "-"*15 + " " + "-"*8)
+		s = LLScanner(table, tuple(w.split()))
+		while s.action not in { LL_ERROR, LL_ACCEPT }:
+			ps = word_to_str(s.stack)
+			pw = word_to_str(s.word)
+			s.next()
+			if s.action == LL_ERROR:
+				msg = "error"
+			elif s.action == LL_ACCEPT:
+				msg = "accept"
+			elif type(s.action) == int:
+				msg = "expand (%d)" % s.action
+			else:
+				msg = "pop %s" % word_to_str(s.action)
+			output("%-15s %-15s %s" % (ps, pw, msg))
+
 if no_action:
-	G.output(sys.stdout)
+	G.print(sys.stdout)

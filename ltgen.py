@@ -116,6 +116,77 @@ class Grammar:
 			fatal("empty grammar in %s" % path)
 
 
+# ParseTree class
+class ParseTree:
+	"""Basic class to represent parse tree and to display it."""
+
+	def __init__(self, sym):
+		self.sym = sym
+		self.children = []
+		self.rule = None
+
+	def get_symbol(self):
+		return self.sym
+
+	def get_children(self):
+		return self.children
+
+	def append_child(self, child):
+		self.children.append(child)
+
+	def prepend_child(self, child):
+		self.children.insert(0, child)
+
+	def write_rec(self, out, pref, last):
+		out.write(pref)
+		out.write(self.sym)
+		if self.children == []:
+			out.write("\n")
+		else:
+			out.write(" +\n")
+			if last:
+				pref = pref[:-2] + "  "
+			pref = pref + " "*len(self.sym) + " | "
+			for child in self.children:
+				child.write_rec(out, pref, child == self.children[-1])
+
+	def write(self, out):
+		self.write_rec(out, "", True)
+
+	def __repr__(self):
+		return self.sym
+
+	def write_dot(self, out):
+		out.write("digraph G {\n")
+		out.write("node [ordering=\"out\"];")
+
+		# generate nodes
+		todo = [ self ]
+		while todo != []:
+			n = todo.pop()
+			out.write("\"%s\" [label=\"%s\"];\n" % (id(n), n.get_symbol()))
+			todo += n.get_children()
+
+		# generates edges
+		todo = [ self ]
+		while todo != []:
+			n = todo.pop()
+			if n.rule == None:
+				l = -1
+			else:
+				l = len(n.get_children()) // 2
+			i = 0
+			for c in n.get_children():
+				todo.append(c)
+				out.write("\"%s\" -> \"%s\"" % (id(n), id(c)))
+				if i == l:
+					out.write("[label=\"(%s)\"]" % n.rule)
+				out.write(";\n")
+				i = i + 1
+
+		out.write("}\n")
+
+
 # Language computation
 def first(k, s, g):
 	"""Compute first_k(s)."""
@@ -217,6 +288,52 @@ def analyze_ll(k, G):
 		return None
 
 
+# LLParser class
+class LLParser:
+	"""Class to scan a word from the given LL table.
+	The scanner takes a word and performs analysis along the call to next.
+	Analysis results can be polled from variablmes stack, word and action.
+	Action takes the last expanded rule number, the popped terminal or
+	special LL_ERROR or LL_ACCEPT."""
+
+	def __init__(self, table, word):
+		self.G = table.G
+		self.k = table.k
+		self.table = table
+		self.word = word + ('$',) * self.k
+		self.stack = ['$'] * self.k + [self.G.get_top()]
+		self.action = 0
+
+	def get_grammar(self):
+		return self.G
+
+	def get_k(self):
+		return self.k
+
+	def next(self):
+		"""Go to the next step."""
+		if self.action in { LL_ERROR, LL_ACCEPT }:
+			pass
+		elif self.stack == []:
+			if self.word == ():
+				self.action = LL_ACCEPT
+			else:
+				self.action = LL_ERROR
+		elif self.stack[-1] == self.word[0]:
+			self.action = self.stack[-1]
+			self.stack.pop()
+			self.word = self.word[1:]
+		else:
+			try:
+				self.action = self.table.at(self.stack[-1], self.word[:self.k])
+				self.stack.pop()
+				x = list(self.G.get_rules()[self.action][1])
+				x.reverse()
+				self.stack += x
+			except KeyError:
+				self.action = LL_ERROR
+	
+
 # LLTable class
 class LLTable:
 	"""Represents an LL(k) table, that is, indexed by non-terminals
@@ -289,49 +406,83 @@ class LLTable:
 					out.write("\t(%d)" % c)
 			out.write("\n")
 
+	def parse(self, word):
+		return LLParser(self, word)
 
-# LLScanner class
-class LLScanner:
-	"""Class to scan a word from the given LL table.
-	The scanner takes a word and performs analysis along the call to next.
-	Analysis results can be polled from variablmes stack, word and action.
-	Action takes the last expanded rule number, the popped terminal or
-	special LL_ERROR or LL_ACCEPT."""
 
-	def __init__(self, table, word):
-		self.G = table.G
-		self.k = table.k
-		self.table = table
-		self.word = word + ('$',) * self.k
-		self.stack = ['$'] * self.k + [self.G.get_top()]
-		self.action = 0
+## LLObserver class
+class LLObserver:
+	"""Base class for LL analysis observer."""
 
-	def next(self):
-		"""Go to the next step."""
-		if self.action in { LL_ERROR, LL_ACCEPT }:
-			pass
-		elif self.stack == []:
-			if self.word == ():
-				self.action = LL_ACCEPT
-			else:
-				self.action = LL_ERROR
-		elif self.stack[-1] == self.word[0]:
-			self.action = self.stack[-1]
-			self.stack.pop()
-			self.word = self.word[1:]
+	def on_start(self, parser):
+		"""Function called before the analysis startup."""
+		pass
+
+	def on_next(self, parser):
+		"""Function called at each next step"""
+		pass
+
+
+class LLDisplayObserver(LLObserver):
+	"""Observer displaying the LL analysis."""
+
+	def on_start(self, parser):
+		self.ps = word_to_str(parser.stack)
+		self.pw = word_to_str(parser.word)
+		self.size = len(self.pw) + 2
+		
+		output("{0:{size}} {1:{size}} {2:{size}}" \
+			.format("Stack", "Word", "Action", size=self.size))
+		output("-"*self.size + " " + "-"*self.size + " " + "-"*12)
+
+	def on_next(self, parser):
+		if parser.action == LL_ERROR:
+			msg = "error"
+		elif parser.action == LL_ACCEPT:
+			msg = "accept"
+		elif type(parser.action) == int:
+			msg = "expand (%d)" % parser.action
 		else:
-			try:
-				self.action = self.table.at(self.stack[-1], self.word[:self.k])
-				self.stack.pop()
-				x = list(self.G.get_rules()[self.action][1])
-				x.reverse()
-				self.stack += x
-			except KeyError:
-				self.action = LL_ERROR
-	
+			msg = "pop %s" % word_to_str(parser.action)
+		output("{0:{size}} {1:{size}} {2:{size}}" \
+			.format(self.ps, self.pw, msg, size=self.size))
+		self.ps = word_to_str(parser.stack)
+		self.pw = word_to_str(parser.word)
+
+
+class LLParseTreeObserver(LLObserver):
+	"""Observer to build the parse tree."""
+
+	def get_root(self):
+		return self.root
+
+	def on_start(self, parser):
+		self.root = ParseTree(parser.G.get_top())
+		self.stack = [ParseTree("$")] * parser.get_k() + [self.root]
+		print(self.stack)
+
+	def on_next(self, parser):
+		if type(parser.action) == str:
+			self.stack.pop()
+		elif parser.action >= 0:
+			parent = self.stack[-1]
+			parent.rule = parser.action
+			self.stack.pop()
+			s = parser.get_grammar().get_rules()[parser.action][1]
+			for i in range(len(s)-1, -1, -1):
+				node = ParseTree(s[i])
+				self.stack.append(node)
+				parent.prepend_child(node)
+
 
 # main command
-parser = argparse.ArgumentParser(description='Language Theory GENerator')
+parser = argparse.ArgumentParser(
+	description=
+"""
+Language Theory GENerator
+Copyright (c) 2021 - H. Cassé <hug.casse@gmail.com>
+"""
+)
 parser.add_argument('grammar', type=str, nargs=1,
 	help="Grammar to use.")
 parser.add_argument('names', type=str, nargs='*',
@@ -356,12 +507,15 @@ parser.add_argument("--table", action="store_true",
 	help="Generate the table for the used analysis.")
 parser.add_argument("--words", "-w", type=str, nargs="*", default=[],
 	help="Parse the given word after the analysis.")
+parser.add_argument("--tree", action="store_true",
+	help="Display the parse tree.")
+parser.add_argument("--dot", action="store_true",
+	help="Display the parse tree as .dot format.")
 
 
 # get the grammar
 args = parser.parse_args()
 G = Grammar(args.grammar[0])
-
 
 # prepare the arguments
 no_action = True
@@ -369,7 +523,7 @@ if args.names != []:
 	names = args.names
 else:
 	names = G.names
-
+exit_code = 0
 
 # msic. calculations
 if args.first:
@@ -412,7 +566,6 @@ if args.ll:
 
 	# output the results
 	if args.table or args.gen_csv == None:
-		print(args)
 		if args.output != None:
 			if args.output != "":
 				path = args.output
@@ -434,22 +587,51 @@ if args.ll:
 
 	# word analysis
 	for w in args.words:
-		output("Stack\t\tWord\t\tAction")
-		output("-"*15 + " " + "-"*15 + " " + "-"*8)
-		s = LLScanner(table, tuple(w.split()))
-		while s.action not in { LL_ERROR, LL_ACCEPT }:
-			ps = word_to_str(s.stack)
-			pw = word_to_str(s.word)
-			s.next()
-			if s.action == LL_ERROR:
-				msg = "error"
-			elif s.action == LL_ACCEPT:
-				msg = "accept"
-			elif type(s.action) == int:
-				msg = "expand (%d)" % s.action
+
+		# prepare observers
+		observers = [LLDisplayObserver()]
+		if args.tree or args.dot:
+			tree = LLParseTreeObserver()
+			observers.append(tree)
+		else:
+			tree = None
+
+		# perform the analysis
+		w = tuple(w.split())
+		parser = table.parse(w)
+		for o in observers:
+			o.on_start(parser)
+		while parser.action not in { LL_ERROR, LL_ACCEPT }:
+			parser.next()
+			if parser.action == LL_ERROR:
+				exit_code = 2
+			for o in observers:
+				o.on_next(parser)
+
+		# postprocess the observers
+		if tree != None or args.dot:
+			if args.output == None:
+				out = sys.stdout
 			else:
-				msg = "pop %s" % word_to_str(s.action)
-			output("%-15s %-15s %s" % (ps, pw, msg))
+				if args.output != "":
+					path = args.output
+				else:
+					if args.dot:
+						ext = ".dot"
+					else:
+						ext = ".txt"
+					path = word_to_str(w) + ext
+				out = open(path, "w")
+			if args.dot:
+				tree.get_root().write_dot(out)
+			else:
+				tree.get_root().write(out)
+			if out != sys.stdout:
+				out.close()
 
 if no_action:
 	G.print(sys.stdout)
+
+# exit
+sys.exit(exit_code)
+

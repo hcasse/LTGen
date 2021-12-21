@@ -21,6 +21,8 @@ are shared by all tools:
   * `--word|-w` "*WORD*" -- scan the *WORD* with the current analysis (separate non-terminals in the word by spaces).
   * `--print` -- print the current grammar (useful un conjunction with `--word)`.
   * `--table` -- print the analysis table.
+  * `--tree` -- dump the parse tree as text.
+  * `--dot` -- dump the parse tree in .dot format.
 
 If no options is given, the used grammar is just displayed.
 
@@ -61,5 +63,9 @@ Grammar can be expressed using `.gram`files. The format is very simple:
 Unit is performed using `pytest` with the command:
 
 	$ pytest test.py
-	
+
+
+## Bug report
+
+Contact [me](hug.casse@gmail.com) or post a bug report on [Git](https://github.com/hcasse/LTGen).
 

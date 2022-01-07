@@ -20,22 +20,26 @@
 
 import sys
 
+STDOUT = sys.stdout
+STDERR = sys.stderr
+EXIT = sys.exit
+
 # IO functions
 def error(msg):
 	"""Display an error."""
-	sys.stderr.write("ERROR: %s\n" % msg)
+	STDERR.write("ERROR: %s\n" % msg)
 
 def fatal(msg):
 	"""Display an error and stop the execution."""
 	error(msg)
-	sys.exit(1)
+	EXIT(1)
 
 def info(msg):
 	"""Display an information to the user (but this information is not
 	part of the result)."""
-	sys.stderr.write("%s\n" % msg)
+	STDERR.write("%s\n" % msg)
 
 def output(msg):
 	"""Display a result to the user."""
-	sys.stdout.write("%s\n" % msg)
+	STDOUT.write("%s\n" % msg)
 

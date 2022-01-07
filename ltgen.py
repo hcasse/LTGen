@@ -19,6 +19,7 @@
 import argparse
 import os.path
 import sys
+import ui
 
 from common import *
 from lang import *
@@ -33,7 +34,7 @@ Language Theory GENerator
 Copyright (c) 2021 - H. Cassé <hug.casse@gmail.com>
 """
 )
-parser.add_argument('grammar', type=str, nargs=1,
+parser.add_argument('grammar', type=str, nargs="?",
 	help="Grammar to use.")
 parser.add_argument('names', type=str, nargs='*',
 	help="List of all non-terminals to work on.")
@@ -61,10 +62,20 @@ parser.add_argument("--tree", action="store_true",
 	help="Display the parse tree.")
 parser.add_argument("--dot", action="store_true",
 	help="Display the parse tree as .dot format.")
+parser.add_argument("--ui", "-u", action="store_true",
+	help="Run the user interface.")
+parser.add_argument("--port", type=int, default=4444,
+	help="Select the port for serving or running the UI.")
+args = parser.parse_args()
 
+
+# UI management
+if args.ui:
+	no_action = False
+	ui.run(args.port)
+	sys.exit(0)
 
 # get the grammar
-args = parser.parse_args()
 G = Grammar(args.grammar[0])
 
 # prepare the arguments

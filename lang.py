@@ -18,6 +18,7 @@
 
 """Facilities to manage languages, words, word set, etc."""
 
+from common import *
 
 # formatting functions
 def word_to_str(w):
@@ -43,8 +44,10 @@ class Grammar:
 	list of rules. Any symbol not defined by a rule is considered
 	as a token (terminal)."""
 
-	def __init__(self, rules):
-		if type(rules) == str:
+	def __init__(self, rules = None, text = None):
+		if text != None:
+			self.parse_text(rules, text)
+		elif type(rules) == str:
 			self.parse(rules)
 		else:
 			self.rules = rules
@@ -80,11 +83,13 @@ class Grammar:
 			out.write("(%d) %s\n" % (n, rule_to_str(X, s)))
 			n = n + 1
 
-	def parse(self, path):
+	def parse(self, path, lines):
 		n = 0
 		self.rules = []
-		for l in open(path):
+		for l in lines:
 			n = n + 1
+			if l == "":
+				return
 			if l[-1] == "\n":
 				l = l[:-1]
 			if "#" in l:
@@ -97,12 +102,19 @@ class Grammar:
 				aa = l[:i].split()
 				if len(aa) != 1:
 					error("%s:%d: malformed rule." % (path, n))
-				s = l[i+2:].split()
-				self.rules.append((aa[0], tuple(s)))
+				else:
+					s = l[i+2:].split()
+					self.rules.append((aa[0], tuple(s)))
 			except ValueError:
 				error("%s:%d: malformed line:\n%s\n" % (path, n, l))
 		if self.rules == []:
 			fatal("empty grammar in %s" % path)
+
+	def parse_text(self, path, text):
+		self.parse(path, text.split("\n"))
+
+	def parse_file(self, path):
+		self.parse(open(path))
 
 
 # ParseTree class

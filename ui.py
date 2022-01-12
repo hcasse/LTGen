@@ -22,6 +22,8 @@ import orchid
 from orchid import *
 import common
 import lang
+import ll
+from functools import partial
 
 # My own page
 class MyPage(Page):
@@ -31,38 +33,43 @@ class MyPage(Page):
 		common.STDERR = self
 		common.EXIT = self.exit
 		llk = Button("LL(k)")
-		first = Button("first(k)", on_click = self.on_first)
-		follow = Button("follow(k)")
-		lookahead = Button("lookahead(k)")
+		first = Button("first(k)",
+			on_click = partial(self.get_grammar, self.do_first))
+		follow = Button("follow(k)",
+			on_click = partial(self.get_grammar, self.do_follow))
+		lookahead = Button("lookahead(k)",
+			on_click = partial(self.get_grammar, self.do_lookahead))
 		self.grammar = Editor()
 		self.console = Console(init = "Welcome to LTGen!\n\n")
 		self.k = Field("k = ", 1, 3, is_valid = is_valid_number) 
 		Page.__init__(self,
-			VGroup(
-				HGroup(
+			VGroup([
+				HGroup([
 					llk,
 					first,
 					follow,
 					lookahead,
 					self.k
-				),
-				HGroup(
-					VGroup(
-						Label("<b>Grammar</b>"),
+				]),
+				HGroup([
+					VGroup([
+						Header("Grammar"),
 						self.grammar
-					),
-					VGroup(
-						Label("<b>Console</b>"),
+					]),
+					VGroup([
+						Header("Console", [
+							ToolButton(Icon("eraser-fill"), on_click=self.clear_console)
+						]),
 						self.console
-					)
-				)
-			),
+					])
+				])
+			]),
 			template = "assets/template.html"
 		)
 		EnableIf(IsValid(self.k), llk, first, follow, lookahead)
 
-	def on_first(self):
-		self.grammar.get_content(self.do_first)
+	def get_grammar(self, f):
+		self.grammar.get_content(f)
 
 	def do_first(self, grammar, content):
 		G = lang.Grammar("G", content)
@@ -72,12 +79,33 @@ class MyPage(Page):
 			self.console.append("first%d(%s) = %s" % (k, n, lang.word_set_to_str(f)))
 		self.console.append("")
 
+	def do_follow(self, grammar, content):
+		G = lang.Grammar("G", content)
+		k = int(self.k.get_content())
+		for n in G.names:
+			f = lang.follow(k, n, G)
+			self.console.append("follow%d(%s) = %s" % (k, n, lang.word_set_to_str(f)))
+		self.console.append("")
+
+	def do_lookahead(self, grammar, content):
+		G = lang.Grammar("G", content)
+		k = int(self.k.get_content())
+		for (X, s) in G.get_rules():
+			f = ll.lookahead(k, X, s, G)
+			self.console.append("%d-lookahead(%s -> %s) = %s" % \
+				(k, X, lang.word_to_str(s), lang.word_set_to_str(f)))
+
+		self.console.append("")
+
 	def write(self, msg):
 		self.console.append(msg[:-1])
 
 	def exit(self, n):
 		pass
 
+	def clear_console(self):
+		self.console.clear()
+
 
 def run(port):
-	orchid.run(MyPage, port = port)
+	orchid.run(MyPage, port = port, dirs = ["./assets"])

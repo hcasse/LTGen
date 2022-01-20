@@ -25,6 +25,10 @@ import lang
 import ll
 from functools import partial
 
+# FatalException class
+class FatalException(BaseException):
+	pass
+
 # My own page
 class MyPage(Page):
 
@@ -32,7 +36,8 @@ class MyPage(Page):
 		common.STDOUT = self
 		common.STDERR = self
 		common.EXIT = self.exit
-		llk = Button("LL(k)")
+		llk = Button("LL(k)",
+			on_click = partial(self.get_grammar, self.do_ll_check))
 		first = Button("first(k)",
 			on_click = partial(self.get_grammar, self.do_first))
 		follow = Button("follow(k)",
@@ -69,39 +74,50 @@ class MyPage(Page):
 		EnableIf(IsValid(self.k), llk, first, follow, lookahead)
 
 	def get_grammar(self, f):
-		self.grammar.get_content(f)
+		self.grammar.get_content(partial(self.parse, f))
 
-	def do_first(self, grammar, content):
-		G = lang.Grammar("G", content)
-		k = int(self.k.get_content())
+	def parse(self, f, grammar, content):
+		try:
+			G = lang.Grammar("G", content)
+			k = int(self.k.get_content())
+			print("DEBUG: k=", k)
+			f(G, k)
+		except FatalException:
+			self.console.append("Stopped")
+		
+
+	def do_first(self, G, k):
 		for n in G.names:
 			f = lang.first(k, (n, ), G)
 			self.console.append("first%d(%s) = %s" % (k, n, lang.word_set_to_str(f)))
 		self.console.append("")
 
-	def do_follow(self, grammar, content):
-		G = lang.Grammar("G", content)
-		k = int(self.k.get_content())
+	def do_follow(self, G, k):
 		for n in G.names:
 			f = lang.follow(k, n, G)
 			self.console.append("follow%d(%s) = %s" % (k, n, lang.word_set_to_str(f)))
 		self.console.append("")
 
-	def do_lookahead(self, grammar, content):
-		G = lang.Grammar("G", content)
-		k = int(self.k.get_content())
+	def do_lookahead(self, G, k):
 		for (X, s) in G.get_rules():
 			f = ll.lookahead(k, X, s, G)
 			self.console.append("%d-lookahead(%s -> %s) = %s" % \
 				(k, X, lang.word_to_str(s), lang.word_set_to_str(f)))
+		self.console.append("")
 
+	def do_ll_check(self, G, k):
+		las = ll.analyze(k, G)
+		if las == None:
+			common.fatal("G is not LL(%d)!" % k)
+		else:
+			common.info("G is LL(%d)." % k)
 		self.console.append("")
 
 	def write(self, msg):
 		self.console.append(msg[:-1])
 
 	def exit(self, n):
-		pass
+		raise FatalException()
 
 	def clear_console(self):
 		self.console.clear()

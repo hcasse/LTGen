@@ -48,7 +48,7 @@ class Grammar:
 		if text != None:
 			self.parse_text(rules, text)
 		elif type(rules) == str:
-			self.parse(rules)
+			self.parse_file(rules)
 		else:
 			self.rules = rules
 		self.tokens = set()
@@ -89,7 +89,7 @@ class Grammar:
 		for l in lines:
 			n = n + 1
 			if l == "":
-				return
+				continue
 			if l[-1] == "\n":
 				l = l[:-1]
 			if "#" in l:
@@ -114,7 +114,7 @@ class Grammar:
 		self.parse(path, text.split("\n"))
 
 	def parse_file(self, path):
-		self.parse(open(path))
+		self.parse(path, open(path))
 
 
 # ParseTree class
@@ -196,8 +196,9 @@ def first(k, s, g):
 	elif g.is_token(s[0]):
 		r = {s[0:1] + p for p in first(k-1, s[1:], g)}
 	else:
-		r = {p for ss in g.rules_for(s[0]) for p in first(k, ss + s[1:], g)}
-	#print("first%d(%s) = %s" % (k, s, r))
+		r = {p for ss in g.rules_for(s[0])
+				if ss == [] or ss[0] != s[0]
+					for p in first(k, ss + s[1:], g)}
 	return r
 
 

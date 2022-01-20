@@ -76,7 +76,7 @@ if args.ui:
 	sys.exit(0)
 
 # get the grammar
-G = Grammar(args.grammar[0])
+G = Grammar(args.grammar)
 
 # prepare the arguments
 no_action = True

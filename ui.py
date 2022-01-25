@@ -29,8 +29,41 @@ from functools import partial
 class FatalException(BaseException):
 	pass
 
+
+class LTPage(Page):
+
+	def __init__(self, comp, console):
+		common.STDOUT = self
+		common.STDERR = self
+		common.EXIT = self.exit
+		Page.__init__(self, comp, template="assets/template.html")
+		self.console = console
+
+	def write(self, msg):
+		self.console.append(msg[:-1])
+
+	def exit(self, n):
+		raise FatalException()
+
+	def clear_console(self):
+		self.console.clear()
+
+
+
+# LLParse page
+class LLParse(LTPage):
+
+	def __init__(self, G, T):
+		LTPage.__init__(self,
+			Label("LLParse !"),
+			None
+		)
+		self.G = G
+		self.T = T
+
+
 # My own page
-class MyPage(Page):
+class MyPage(LTPage):
 
 	def __init__(self):
 		common.STDOUT = self
@@ -46,15 +79,21 @@ class MyPage(Page):
 			on_click = partial(self.get_grammar, self.do_lookahead))
 		self.grammar = Editor()
 		self.console = Console(init = "Welcome to LTGen!\n\n")
-		self.k = Field("k = ", 1, 3, is_valid = is_valid_number) 
-		Page.__init__(self,
+		self.k = Field("k =", 1, 3, is_valid = is_valid_number)
+		parse = Button("Parse",
+			on_click = partial(self.get_grammar, self.do_parse))
+		self.word = Field(size=16)
+		LTPage.__init__(self,
 			VGroup([
 				HGroup([
 					llk,
 					first,
 					follow,
 					lookahead,
-					self.k
+					self.k,
+					Spring(hexpand = True),
+					self.word,
+					parse
 				]),
 				HGroup([
 					VGroup([
@@ -63,13 +102,13 @@ class MyPage(Page):
 					]),
 					VGroup([
 						Header("Console", [
-							ToolButton(Icon("eraser-fill"), on_click=self.clear_console)
+							ToolButton(Icon(ICON_ERASE), on_click=self.clear_console)
 						]),
 						self.console
 					])
 				])
 			]),
-			template = "assets/template.html"
+			self.console
 		)
 		EnableIf(IsValid(self.k), llk, first, follow, lookahead)
 
@@ -84,7 +123,9 @@ class MyPage(Page):
 			f(G, k)
 		except FatalException:
 			self.console.append("Stopped")
-		
+
+	def do_parse(self, G, k):
+		pass
 
 	def do_first(self, G, k):
 		for n in G.names:
@@ -113,15 +154,20 @@ class MyPage(Page):
 			common.info("G is LL(%d)." % k)
 		self.console.append("")
 
-	def write(self, msg):
-		self.console.append(msg[:-1])
 
-	def exit(self, n):
-		raise FatalException()
+class LTApplication(Application):
 
-	def clear_console(self):
-		self.console.clear()
+	def __init__(self):
+		Application.__init__(self, "LTGen",
+			version="1.0",
+			authors=["H. Cassé <hug.casse@gmail.com>"],
+			license="GPL 2.1",
+			copyright="Copyright (c) 2021 H. Cassé <hug.casse@gmail.com>",
+			description="Theory Language generator for first, follow, LL, etc.")
 
+	def first(self):
+		return MyPage()
+	
 
 def run(port):
-	orchid.run(MyPage, port = port, dirs = ["./assets"])
+	orchid.run(LTApplication(), port = port, dirs = ["./assets"])

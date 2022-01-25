@@ -100,11 +100,16 @@ class Grammar:
 			try:
 				i = l.index("->")
 				aa = l[:i].split()
-				if len(aa) != 1:
-					error("%s:%d: malformed rule." % (path, n))
+				if len(aa) == 1:
+					hd = aa[0]
+				elif len(aa) == 0 and len(self.rules) != 0:
+					hd = self.rules[-1][0]
 				else:
+					error("%s:%d: malformed rule." % (path, n))
+					hd = None
+				if hd != None:
 					s = l[i+2:].split()
-					self.rules.append((aa[0], tuple(s)))
+					self.rules.append((hd, tuple(s)))
 			except ValueError:
 				error("%s:%d: malformed line:\n%s\n" % (path, n, l))
 		if self.rules == []:

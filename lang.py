@@ -21,22 +21,144 @@
 from common import *
 
 # formatting functions
-def word_to_str(w):
-	if len(w) == 0:
-		return u"ε"
-	elif type(w) == list:
-		return " ".join(w)
-	else:
-		return " ".join(list(w))
+#def word_to_str(w):
+#	if len(w) == 0:
+#		return u"ε"
+#	elif type(w) == list:
+#		return " ".join(w)
+#	else:
+#		return " ".join(list(w))
 
 def word_set_to_str(S):
-	f = [word_to_str(w) for w in S]
+	f = [str(w) for w in S]
 	f.sort()
-	return "{ %s }" % (", ".join(list(f)))
+	return "{ %s }" % (", ".join(f))
 
-def rule_to_str(X, s):
-	return "%s -> %s" % (X, word_to_str(s))
+#def rule_to_str(X, s):
+#	return "%s -> %s" % (X, word_to_str(s))
 
+class EmptyWordExcepion(Exception):
+	pass
+
+
+#class UnsupportedOperationExcepion(Exception):
+#	pass
+
+
+# Word class
+class Word:
+	"""Implements a word and usual operations on a word. A word is made
+	of a list of alphabet characters."""
+
+	def __init__(self, *chars):
+		self.chars = tuple(chars)
+
+	def is_empty(self):
+		return self.chars == ()
+
+	def __len__(self):
+		return len(self.chars)
+
+	def prefix(self, k):
+		if len(self.chars) <= k:
+			return self.chars
+		else:
+			return self.chars[:k]
+
+	def suffix(self, k):
+		if len(self.chars) <= k:
+			return self.chars
+		else:
+			return self.chars[:-k]
+
+	def first(self):
+		if self.chars == ():
+			raise EmptyWordExcepion
+		else:
+			return self.chars[0]
+
+	def reverse(self):
+		"""Return reverse word from the current word."""
+		return Word(*self.chars[::-1])
+
+	def tail(self):
+		if self.chars == ():
+			raise EmptyWordExcepion
+		else:
+			return Word(*self.chars[1:])
+
+	def index(self, a, i = 0):
+		try:
+			return self.chars.index(a, i)
+		except ValueError:
+			return len(self.chars)
+
+	def __eq__(self, w):
+		if not isinstance(w, Word):
+			return False
+		else:
+			return self.chars == w.chars
+
+	def __hash__(self):
+		return hash(self.chars)
+
+	def __str__(self):
+		if len(self.chars) == 0:
+			return u"ε"
+		else:
+			return " ".join(self.chars)
+
+	def __repr__(self):
+		return self.__str__()
+
+	def __iter__(self):
+		return iter(self.chars)
+
+	def __getitem__(self, i):
+		if type(i) == slice:
+			return Word(*self.chars[i])
+		else:
+			return self.chars[i]
+
+	def __add__(self, w):
+		if type(w) == Word:
+			return Word(*self.chars, *w.chars)
+		elif type(w) == str:
+			return Word(*self.chars, w)
+		else:
+			raise NotImplemented()
+
+	def __radd__(self, w):
+		if type(w) == Word:
+			return Word(*w.chars, *self.chars)
+		elif type(w) == str:
+			return Word(w, *self.chars)
+		else:
+			raise NotImplemented()
+
+	def __mul__(self, k):
+		if type(k) != int:
+			raise NotImplemented()
+		else:
+			return Word(*(self.chars * k))
+
+EMPTY_WORD = Word()
+
+
+# Rule class
+class Rule:
+	"""Represents a rule: X -> w."""
+
+	def __init__(self, X, w):
+		self.X = X
+		if type(w) == Word:
+			self.w = w
+		else:
+			self.w = Word(*w)
+
+	def __str__(self):
+		return "%s -> %s" % (self.X, self.w)
+		
 
 # Grammar class
 class Grammar:
@@ -53,15 +175,15 @@ class Grammar:
 			self.rules = rules
 		self.tokens = set()
 		self.names = set()
-		for (_, s) in self.rules:
-			for a in s:
+		for rule in self.rules:
+			for a in rule.w:
 				self.tokens.add(a)
-		for (X, _) in self.rules:
-			self.names.add(X)
+		for rule in self.rules:
+			self.names.add(rule.X)
 		self.top = "S'"
 		while self.top in self.tokens:
-			self.stop = self.top + "'"
-		self.rules = [(self.top, (self.rules[0][0],))] + self.rules
+			self.top = self.top + "'"
+		self.rules = [Rule(self.top, (self.rules[0].X,))] + self.rules
 		self.tokens = list(self.tokens - self.names)
 		self.names = [self.top] + list(self.names)
 
@@ -72,15 +194,15 @@ class Grammar:
 		return id in self.tokens
 
 	def rules_for(self, id):
-		return [s for (i, s) in self.rules if i == id]
+		return [r.w for r in self.rules if r.X == id]
 
 	def get_rules(self):
 		return self.rules
 
 	def print(self, out):
 		n = 0
-		for (X, s) in self.rules:
-			out.write("(%d) %s\n" % (n, rule_to_str(X, s)))
+		for rule in self.rules:
+			out.write("(%d) %s\n" % (n, rule))
 			n = n + 1
 
 	def parse(self, path, lines):
@@ -109,7 +231,7 @@ class Grammar:
 					hd = None
 				if hd != None:
 					s = l[i+2:].split()
-					self.rules.append((hd, tuple(s)))
+					self.rules.append(Rule(hd, Word(*s)))
 			except ValueError:
 				error("%s:%d: malformed line:\n%s\n" % (path, n, l))
 		if self.rules == []:
@@ -196,57 +318,61 @@ class ParseTree:
 # Language computation
 def first(k, s, g):
 	"""Compute first_k(s)."""
+	#print("DEBUG: first(", k, ", ", s, ", ", g)
 	if k == 0 or len(s) == 0:
-		r = {()}
+		r = { EMPTY_WORD }
 	elif g.is_token(s[0]):
-		r = {s[0:1] + p for p in first(k-1, s[1:], g)}
+		r = {s.first() + p for p in first(k-1, s.tail(), g)}
 	else:
-		r = {p for ss in g.rules_for(s[0])
+		r = {w for ss in g.rules_for(s[0])
 				if ss == [] or ss[0] != s[0]
-					for p in first(k, ss + s[1:], g)}
+					for w in first(k, ss + s[1:], g)}
 	return r
 
 
-def firstfollow(k, X, s, G):
+def firstfollow(k, X, s, G, L):
 	#print("call firstfollow%d(%s, %s)" % (k, X, s))
 	P = first(k, s, G)
 	m = max([k - len(p) for p in P])
 	if m == 0:
 		r = P
 	else:
-		F = follow(m, X, G)
+		F = rec_follow(m, X, G, L)
 		r = {(p + f)[:k] for f in F for p in P}
 	#print("return firstfollow%d(%s, %s) = %s" % (k, X, s, r))
 	return r
 
 
-def rec_follow(k, X, G, L):
-	#print("call rec_follow%d(%s, %s)" % (k, X, L))
-	if X in L:
-		r = set()
-	elif k == 0:
-		r = {()}
-	elif X == G.get_top():
-		r = {("$",) * k}
+def rec_follow(k, X, G, L = set()):
+	"""Compute followk(X) in grammar G in a recursive way.
+	L is the link list of recursive follow to avoid endless linkage."""
+	#print("DEBUG: call rec_follow%d(%s)" % (k, X))
+	L = L | { X }
+	if k == 0:
+		r = { EMPTY_WORD }
 	else:
 		r = set()
-		for (Y, s) in G.get_rules():
-			try:
-				i = 0
-				while True:
-					i = s.index(X, i)
-					if i == len(s)-1:
-						r |= rec_follow(k, Y, G, L | {X})
-					else:
-						r |= firstfollow(k, Y, s[i+1:], G)
-					i = i + 1
-			except ValueError:
-				pass
-	#print("return rec_follow%d(%s, %s) = %s" % (k, X, L, r))
-	return r
-	
+		for rule in G.get_rules():
 
+			# axiom case
+			if rule.X == G.top and X == rule.w[0]:
+				r |= { Word("$") * k }
+				continue
+
+			# get all prefixes following X
+			i = 0
+			ir = set()
+			while i < len(rule.w):
+				i = rule.w.index(X, i)
+				if i < len(rule.w):
+					i = i + 1
+					w = rule.w[i:]
+					if len(w) != 0 or rule.X not in L:
+						r |= firstfollow(k, rule.X, w, G, L)
+
+	#print("DEBUG: return rec_follow%d(%s) = %s" % (k, X, r))
+	return r
 
 def follow(k, X, G):
 	"""Compute follow_k(X)."""
-	return rec_follow(k, X, G, set())
+	return rec_follow(k, X, G)

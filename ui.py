@@ -36,7 +36,7 @@ class LTPage(Page):
 		common.STDOUT = self
 		common.STDERR = self
 		common.EXIT = self.exit
-		Page.__init__(self, comp, template="assets/template.html")
+		Page.__init__(self, comp)
 		self.console = console
 
 	def write(self, msg):
@@ -85,6 +85,11 @@ class MyPage(LTPage):
 		self.word = Field(size=16)
 		LTPage.__init__(self,
 			VGroup([
+				Banner("""
+					<h1 class="top-title">LTGen v1.0</h1>
+					<p class="top-title">Language Theory Generator</p>
+					<hr>
+				"""),
 				HGroup([
 					llk,
 					first,
@@ -102,7 +107,7 @@ class MyPage(LTPage):
 					]),
 					VGroup([
 						Header("Console", [
-							ToolButton(Icon(ICON_ERASE), on_click=self.clear_console)
+							Button(image = Icon(ICON_ERASE), on_click=self.clear_console)
 						]),
 						self.console
 					])

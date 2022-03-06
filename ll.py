@@ -27,7 +27,7 @@ ERROR = -1
 
 # Analysis
 def lookahead(k, X, s, G):
-	return firstfollow(k, X, s, G)
+	return firstfollow(k, X, s, G, {X})
 
 
 def analyze(k, G):
@@ -41,9 +41,9 @@ def analyze(k, G):
 		# compute lookahead
 		rs = []
 		n = 0
-		for (Y, s) in G.get_rules():
-			if X == Y:
-				rs.append((n, X, s, lookahead(k, X, s, G)))
+		for rule in G.get_rules():
+			if X == rule.X:
+				rs.append((n, X, rule.w, lookahead(k, X, rule.w, G)))
 			n = n + 1
 		las += rs
 
@@ -57,7 +57,7 @@ def analyze(k, G):
 						success = False
 						for (n, X, s, l) in rs:
 							print("(%d) %d-lookahead(%s -> %s) = %s" \
-								%(n, k, X, word_to_str(s), word_set_to_str(l)))
+								%(n, k, X, s, word_set_to_str(l)))
 					print("I%d conflicts with I%d: %s" \
 						% (rs[i][0], rs[j][0], word_set_to_str(I)))
 
@@ -81,8 +81,8 @@ class Parser:
 		self.G = table.G
 		self.k = table.k
 		self.table = table
-		self.word = word + ('$',) * self.k
-		self.stack = ['$'] * self.k + [self.G.get_top()]
+		self.word = word + Word('$') * self.k
+		self.stack = Word(*('$' * self.k), self.G.get_top())
 		self.action = 0
 
 	def get_grammar(self):
@@ -98,21 +98,20 @@ class Parser:
 		"""Go to the next step."""
 		if self.is_ended():
 			pass
-		elif self.stack == []:
-			if self.word == ():
+		elif self.stack.is_empty():
+			if self.word.is_empty():
 				self.action = ACCEPT
 			else:
 				self.action = ERROR
 		elif self.stack[-1] == self.word[0]:
 			self.action = self.stack[-1]
-			self.stack.pop()
+			self.stack = self.stack[:-1]
 			self.word = self.word[1:]
 		else:
 			try:
 				self.action = self.table.at(self.stack[-1], self.word[:self.k])
-				self.stack.pop()
-				x = list(self.G.get_rules()[self.action][1])
-				x.reverse()
+				self.stack = self.stack[0:-1]
+				x = self.G.get_rules()[self.action].w.reverse()
 				self.stack += x
 			except KeyError:
 				self.action = ERROR
@@ -168,7 +167,7 @@ class Table:
 	def write_to_csv(self, out):
 		"""Write the given table to a CSV flow."""
 		for la in self.las:
-			out.write(",%s" % word_to_str(la))
+			out.write(",%s" % la)
 		out.write("\n")
 		for X in self.nts:
 			out.write(X)
@@ -179,7 +178,7 @@ class Table:
 	def write(self, out):
 		"""Write the table in human readable way."""
 		for la in self.las:
-			out.write("\t%s" % word_to_str(la))
+			out.write("\t%s" % la)
 		out.write("\n")
 		for X in self.nts:
 			out.write(X)
@@ -211,9 +210,9 @@ class DisplayObserver(Observer):
 	"""Observer displaying the LL analysis."""
 
 	def on_start(self, parser):
-		self.ps = word_to_str(parser.stack)
-		self.pw = word_to_str(parser.word)
-		self.size = len(self.pw) + 2
+		self.ps = parser.stack
+		self.pw = parser.word
+		self.size = len(self.pw) * 2 - 1
 		
 		output("{0:{size}} {1:{size}} {2:{size}}" \
 			.format("Stack", "Word", "Action", size=self.size))
@@ -227,11 +226,11 @@ class DisplayObserver(Observer):
 		elif type(parser.action) == int:
 			msg = "expand (%d)" % parser.action
 		else:
-			msg = "pop %s" % word_to_str(parser.action)
+			msg = "pop %s" % parser.action
 		output("{0:{size}} {1:{size}} {2:{size}}" \
-			.format(self.ps, self.pw, msg, size=self.size))
-		self.ps = word_to_str(parser.stack)
-		self.pw = word_to_str(parser.word)
+			.format(str(self.ps), str(self.pw), msg, size=self.size))
+		self.ps = parser.stack
+		self.pw = parser.word
 
 
 class ParseTreeObserver(Observer):

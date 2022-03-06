@@ -1,51 +1,61 @@
 #!/usr/bin/python3
 
-from ltgen import *
+from lang import *
+from ll import *
 
 def get_G():
 	return Grammar(
-		"S'",
-		[
-			("S'", ("S")),
-			("S", ("a", "a", "b")),
-			("S", ("a", "R")),
-			("R", ("a", "b")),
-			("R", ("b", "c", "R")),
-			("R", ("d", "R", "b"))
+		rules = [
+			Rule("S", Word("a", "a", "b")),
+			Rule("S", Word("a", "R")),
+			Rule("R", Word("a", "b")),
+			Rule("R", Word("b", "c", "R")),
+			Rule("R", Word("d", "R", "b"))
 		]
 	)
 
 def test_first():
 	G = get_G()
-	assert first(0, ("a", "R"), G) == { () }
-	assert first(1, ("a", "R"), G) == { ("a",) }
-	assert first(2, ("a", "R"), G) == { ('a', 'a'), ('a', 'b'), ('a', 'd') }
-	assert first(3, ("a", "R"), G) == {
-		("a", "a", "b"),
-		("a", "b", "c"),
-		("a", "d", "a"),
-		("a", "d", "b"),
-		("a", "d", "d")
+	assert first(0, Word("a", "R"), G) == { Word() }
+	assert first(1, Word("a", "R"), G) == { Word("a",) }
+	assert first(2, Word("a", "R"), G) == {
+		Word('a', 'a'),
+		Word('a', 'b'),
+		Word('a', 'd')
 	}
-	assert first(4, ("a", "R"), G) == {
-		('a', 'a', 'b'),
-		('a', 'b', 'c', 'a'),
-		('a', 'b', 'c', 'b'),
-		('a', 'b', 'c', 'd'),
-		('a', 'd', 'a', 'b'),
-		('a', 'd', 'b', 'c'),
-		('a', 'd', 'd', 'a'),
-		('a', 'd', 'd', 'b'),
-		('a', 'd', 'd', 'd')
+	assert first(3, Word("a", "R"), G) == {
+		Word("a", "a", "b"),
+		Word("a", "b", "c"),
+		Word("a", "d", "a"),
+		Word("a", "d", "b"),
+		Word("a", "d", "d")
+	}
+	assert first(4, Word("a", "R"), G) == {
+		Word('a', 'a', 'b'),
+		Word('a', 'b', 'c', 'a'),
+		Word('a', 'b', 'c', 'b'),
+		Word('a', 'b', 'c', 'd'),
+		Word('a', 'd', 'a', 'b'),
+		Word('a', 'd', 'b', 'c'),
+		Word('a', 'd', 'd', 'a'),
+		Word('a', 'd', 'd', 'b'),
+		Word('a', 'd', 'd', 'd')
 	}
 
 def test_follow():
 	G = get_G()
-	assert follow(0, "S", G) == {()}
-	assert follow(1, "S'", G) == {('$',)}
-	assert follow(3, "S'", G) == {('$', '$', '$')}
-	assert follow(1, "S", G) == {('$',)}
-	assert follow(1, "R", G) == {('$',), ('b',)}
-	assert follow(2, "R", G) == {('b', '$'), ('b', 'b'), ('$', '$')}
+	assert follow(0, "S", G) == {Word()}
+	assert follow(1, "S'", G) == set()
+	assert follow(1, "S", G) == {Word('$',)}
+	assert follow(3, "S", G) == {Word('$', '$', '$')}
+	assert follow(1, "S", G) == {Word('$',)}
+	assert follow(1, "R", G) == {Word('$',), Word('b',)}
+	assert follow(2, "R", G) == {
+		Word('b', '$'),
+		Word('b', 'b'),
+		Word('$', '$')
+	}
 
-G = get_G()
+test_first()
+test_follow()
+#print("Test succeeded!")

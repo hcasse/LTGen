@@ -90,7 +90,7 @@ exit_code = 0
 if args.first:
 	no_action = False
 	for n in names:
-		f = first(args.k, (n, ), G)
+		f = first(args.k, Word(n), G)
 		output("first%d(%s) = %s" % (args.k, n, word_set_to_str(f)))
 if args.follow:
 	no_action = False
@@ -99,11 +99,11 @@ if args.follow:
 		output("follow%d(%s) = %s" % (args.k, n, word_set_to_str(f)))
 if args.lookahead:
 	no_action = False
-	for (X, s) in G.get_rules():
-		if X in names:
-			f = ll.lookahead(args.k, X, s, G)
-		output("%d-lookahead(%s -> %s) = %s" % \
-			(args.k, X, word_to_str(s), word_set_to_str(f)))
+	for rule in G.get_rules():
+		if rule.X in names:
+			f = ll.lookahead(args.k, rule.X, rule.w, G)
+		output("%d-lookahead(%s) = %s" % \
+			(args.k, rule, word_set_to_str(f)))
 
 # print the grammar
 if args.print:
@@ -158,7 +158,7 @@ if args.ll:
 			tree = None
 
 		# perform the analysis
-		w = tuple(w.split())
+		w = Word(*w.split())
 		parser = table.parse(w)
 		for o in observers:
 			o.on_start(parser)
